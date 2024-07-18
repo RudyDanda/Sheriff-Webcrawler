@@ -18,6 +18,8 @@ class SheriffSpider(scrapy.Spider):
     #     page = failure.request.meta["playwright_page"]
 	# 	await page.close()
 
+    # FIND ALL ONES WITH "dayid" and then append those to urls
+
     def errback(self, failure):
         self.logger.error(f"Request failed: {failure}")
         request = failure.request
@@ -53,13 +55,38 @@ class SheriffSpider(scrapy.Spider):
 
         return formatted_address
     
+    def open_calendar(self):
+        urls = ['https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=USER&zmethod=CALENDAR']
 
-
+        for url in urls:
+            yield scrapy.Request(url=url,
+                                 meta={
+                                     'playwright':True, 
+                                     'playwright_include_page' : True
+                                 },
+                                 callback=self.start_requests)
+            
     def start_requests(self):
-        urls = [
-            #"https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/22/2024",
-            "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/22/2024"
-        ]
+        urls = ['https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=USER&zmethod=CALENDAR']
+
+        for url in urls:
+            yield scrapy.Request(url=url,
+                                 meta={
+                                     'playwright':True, 
+                                     'playwright_include_page' : True
+                                 },
+                                 callback=self.parse_calendar)
+            
+
+            
+    def parse_calendar(self, response):
+        dates = response.css('div.CALBOX.CALW5.CALSELF ::attr(dayid)')
+
+        urls = []
+        template = 'https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE='
+
+        for date in dates:
+            urls.append(template + date.get())
 
         for url in urls:
             yield scrapy.Request(url=url, 
@@ -68,26 +95,42 @@ class SheriffSpider(scrapy.Spider):
                                      'playwright':True, 
                                      'playwright_include_page' : True, 
                                      'playwright_page_methods' : [
-                                         PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000), 
-                                         PageMethod('wait_for_selector', '#maxWA', timeout=10000),
+                                         PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=50000), 
+                                         PageMethod('wait_for_selector', "#maxCA", timeout=50000),
                                         ]
                                     }, 
                                 callback=self.parse)
+
+
+
+    # For single page testing use!!!!
+
+    # def start_requests(self):
+    #     urls = [
+    #         #"https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/22/2024",
+    #         "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/29/2024"
+    #     ]
+
+    #     for url in urls:
+    #         yield scrapy.Request(url=url, 
+    #                              #errback=self.errback,
+    #                              meta={
+    #                                  'playwright':True, 
+    #                                  'playwright_include_page' : True, 
+    #                                  'playwright_page_methods' : [
+    #                                      PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000), 
+    #                                      PageMethod('wait_for_selector', "[id^='max']", timeout=10000),
+    #                                     ]
+    #                                 }, 
+    #                             callback=self.parse)
+            
+
     
+    # TODO: Get start dates working. It loads in a little slower than the rest
+    async def assign_auctions_items(self, auction_div, page, max_pages, i, type):
 
-    async def parse(self, response):
-
-        max_pages = int(response.css('#maxWA::text').get())
-        page = response.meta['playwright_page']
-
-        for i in range(1, max_pages+1):
-
-            content = await page.content()
-            response = scrapy.http.HtmlResponse(url=response.url, body=content, encoding='utf-8')
-
-            auction_div = response.css('div.AUCTION_ITEM.PREVIEW')
-
-            # Store first auction sale case number to detect changes when switching pages
+        # Store first auction sale case number to detect changes when switching pages
+        if auction_div:
             first_case_number = auction_div[0].css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td::text').get()
 
             for ele in auction_div:
@@ -99,7 +142,6 @@ class SheriffSpider(scrapy.Spider):
                 item['parcel_id'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(3) > td::text').get()
 
                 item['property_address'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get())
-                #print(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get()))
 
                 item['appraised_value'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(6) > td::text').get()
                 item['opening_bid'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(7) > td::text').get()
@@ -109,13 +151,46 @@ class SheriffSpider(scrapy.Spider):
 
             if i < max_pages:
                 #await page.wait_for_timeout(3000)
-                await page.fill('input#curPWA', str(i + 1))
-                await page.press('input#curPWA', 'Enter')
-                
+                await page.fill(f'input#curP{type}A', str(i + 1))
+                await page.press(f'input#curP{type}A', 'Enter')
+                    
                 # Wait for the value of the input to change to the next page number
                 await page.wait_for_function(
                     f'document.querySelector("div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td").textContent != "{first_case_number}"'
                 )
+
+                # TODO: ^^^ Fix the way it waits for next first_case_number change. It's grabbing it indiscriminately and not by type area"
+    
+
+    # TODO: Implement running auctions as well --> refer to other parsing loops
+    async def parse(self, response):
+
+        
+        page = response.meta['playwright_page']
+
+        max_pages_waiting = int(response.css('#maxWA::text').get())
+        for i in range(1, max_pages_waiting+1):
+
+            content = await page.content()
+            response = scrapy.http.HtmlResponse(url=response.url, body=content, encoding='utf-8')
+
+            waiting_auctions = response.css('div#Area_W > div.AUCTION_ITEM.PREVIEW')
+
+            async for item in self.assign_auctions_items(waiting_auctions, page, max_pages_waiting, i, 'W'):
+                yield item
+
+
+        max_pages_closed = int(response.css('#maxCA::text').get())
+
+        for i in range(1, max_pages_closed+1):
+            content = await page.content()
+            response = scrapy.http.HtmlResponse(url=response.url, body=content, encoding='utf-8')
+
+            closed_auctions = response.css('div#Area_C > div.AUCTION_ITEM.PREVIEW')
+
+            async for item in self.assign_auctions_items(closed_auctions, page, max_pages_closed, i, 'C'):
+                yield item
+            
 
         await page.close()
 
