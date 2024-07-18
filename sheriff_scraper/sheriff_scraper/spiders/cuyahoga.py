@@ -58,7 +58,7 @@ class SheriffSpider(scrapy.Spider):
     def start_requests(self):
         urls = [
             #"https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/22/2024",
-            "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/15/2024"
+            "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/22/2024"
         ]
 
         for url in urls:
@@ -67,37 +67,76 @@ class SheriffSpider(scrapy.Spider):
                                  meta={
                                      'playwright':True, 
                                      'playwright_include_page' : True, 
-                                     'playwright_page_methods' : [PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000)], 
-                                     'retry_count' : 0}, 
+                                     'playwright_page_methods' : [
+                                         PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000), 
+                                         PageMethod('wait_for_selector', '#maxWA', timeout=10000),
+                                        ]
+                                    }, 
                                 callback=self.parse)
-            
+    
 
-    def parse(self, response):
-        #page.wait_for_selector('div.AUCTION_ITEM.PREVIEW', timeout=5000)
-        # If selector found, process page
+    async def parse(self, response):
 
-            
-        auction_div = response.css('div.AUCTION_ITEM.PREVIEW')
+        max_pages = int(response.css('#maxWA::text').get())
+        page = response.meta['playwright_page']
 
-        # TODO: Implement feature that clicks on next page button on each url
-        # Idea: have double for loop --> outer for loop is iterating each page
-        
-        for ele in auction_div:
-            item = SheriffScraperItem()
+        for i in range(1, max_pages+1):
 
-            item['start_date'] = ele.css('div.ASTAT_MSGB.Astat_DATA::text').get()
-            item['case_status'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(1) > td::text').get()
-            item['case_number'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td::text').get()
-            item['parcel_id'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(3) > td::text').get()
+            content = await page.content()
+            response = scrapy.http.HtmlResponse(url=response.url, body=content, encoding='utf-8')
 
-            item['property_address'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get())
-            #print(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get()))
+            auction_div = response.css('div.AUCTION_ITEM.PREVIEW')
 
-            item['appraised_value'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(6) > td::text').get()
-            item['opening_bid'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(7) > td::text').get()
-            item['deposit_requirement'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(8) > td::text').get()
+            # Store first auction sale case number to detect changes when switching pages
+            first_case_number = auction_div[0].css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td::text').get()
 
-            yield item
+            for ele in auction_div:
+                item = SheriffScraperItem()
+
+                item['start_date'] = ele.css('div.ASTAT_MSGB.Astat_DATA::text').get()
+                item['case_status'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(1) > td::text').get()
+                item['case_number'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td::text').get()
+                item['parcel_id'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(3) > td::text').get()
+
+                item['property_address'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get())
+                #print(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get()))
+
+                item['appraised_value'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(6) > td::text').get()
+                item['opening_bid'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(7) > td::text').get()
+                item['deposit_requirement'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(8) > td::text').get()
+
+                yield item
+
+            if i < max_pages:
+                #await page.wait_for_timeout(3000)
+                await page.fill('input#curPWA', str(i + 1))
+                await page.press('input#curPWA', 'Enter')
+                
+                # Wait for the value of the input to change to the next page number
+                await page.wait_for_function(
+                    f'document.querySelector("div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td").textContent != "{first_case_number}"'
+                )
+
+        await page.close()
+
+
+
+        # if response.meta['cur_page'] != response.meta['max_pages']:
+        #     yield scrapy.Request(response.url, callback=self.parse, meta={
+        #         "playwright" : True,
+        #         "playwright_include_page" : True,
+        #         'playwright_page_methods' : [
+        #             PageMethod('fill', 'input#curPWA', str(response.meta['cur_page'] + 1) ),
+        #             PageMethod('press', 'input#curPWA', 'Enter'),
+        #             #PageMethod('wait_for_timeout', 3000),
+        #             PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000), 
+        #             PageMethod('wait_for_selector', 'input#curPWA', timeout=10000),
+        #         ],
+        #         'cur_page' : response.meta['cur_page'] + 1,
+        #         'dont_filter' : True
+        #     })
+
+
 
 
 
