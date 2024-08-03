@@ -102,3 +102,8 @@ PLAYWRIGHT_LAUNCH_OPTIONS = {'headless' : False}
 
 # Disable the default duplicate filter
 DUPEFILTER_CLASS = 'scrapy.dupefilters.BaseDupeFilter'
+
+# Request settings
+
+# Configure a delay for requests for the same website (default: 0)
+DOWNLOAD_DELAY = 2

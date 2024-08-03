@@ -14,12 +14,6 @@ class SheriffSpider(scrapy.Spider):
     allowed_domains = ['cuyahoga.sheriffsaleauction.ohio.gov']
     max_retries = 3
 
-    # async def errback(self, failure):
-    #     page = failure.request.meta["playwright_page"]
-	# 	await page.close()
-
-    # FIND ALL ONES WITH "dayid" and then append those to urls
-
     # def errback(self, failure):
     #     self.logger.error(f"Request failed: {failure}")
     #     request = failure.request
@@ -85,16 +79,16 @@ class SheriffSpider(scrapy.Spider):
                                  },
                                  callback=self.start_requests)
             
-    # def start_requests(self):
-    #     urls = ['https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=USER&zmethod=CALENDAR']
+    def start_requests(self):
+        urls = ['https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=USER&zmethod=CALENDAR']
 
-    #     for url in urls:
-    #         yield scrapy.Request(url=url,
-    #                              meta={
-    #                                  'playwright':True, 
-    #                                  'playwright_include_page' : True
-    #                              },
-    #                              callback=self.parse_calendar)
+        for url in urls:
+            yield scrapy.Request(url=url,
+                                 meta={
+                                     'playwright':True, 
+                                     'playwright_include_page' : True
+                                 },
+                                 callback=self.parse_calendar)
             
 
             
@@ -105,18 +99,18 @@ class SheriffSpider(scrapy.Spider):
         template = 'https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE='
 
         for date in dates:
-            urls.append(template + date.get())
+            #urls.append(template + date.get())
+            url = template + date.get()
 
-        for url in urls:
-            yield scrapy.Request(url=url, 
-                                 #errback=self.errback,
+            yield scrapy.Request(url=url,
                                  meta={
                                      'playwright':True, 
                                      'playwright_include_page' : True, 
                                      'playwright_page_methods' : [
                                          PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=5000), 
-                                         PageMethod('wait_for_selector', "#maxCA", timeout=5000),
-                                        ]
+                                         PageMethod('wait_for_selector', '[id*=max]', timeout=10000)
+                                        ],
+                                        'url': url
                                     }, 
                                 callback=self.parse,
                                 errback=self.errback)
@@ -125,24 +119,25 @@ class SheriffSpider(scrapy.Spider):
 
     # For single page testing use!!!!
 
-    def start_requests(self):
-        urls = [
-            #"https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/22/2024",
-            "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/29/2024"
-        ]
+    # def start_requests(self):
+    #     urls = [
+    #         "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=08/12/2024",
+    #         "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/17/2024"
+    #     ]
 
-        for url in urls:
-            yield scrapy.Request(url=url, 
-                                 #errback=self.errback,
-                                 meta={
-                                     'playwright':True, 
-                                     'playwright_include_page' : True, 
-                                     'playwright_page_methods' : [
-                                         PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000), 
-                                         PageMethod('wait_for_selector', "[id^='max']", timeout=10000),
-                                        ]
-                                    }, 
-                                callback=self.parse)
+    #     for url in urls:
+    #         yield scrapy.Request(url=url, 
+    #                              errback=self.errback,
+    #                              meta={
+    #                                  'playwright':True, 
+    #                                  'playwright_include_page' : True, 
+    #                                  'playwright_page_methods' : [
+    #                                      PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000), 
+    #                                      PageMethod('wait_for_selector', "#maxCA", timeout=10000),
+    #                                     ],
+    #                                     'url': url
+    #                                 }, 
+    #                             callback=self.parse)
             
 
     
@@ -172,7 +167,7 @@ class SheriffSpider(scrapy.Spider):
                 yield item
 
             if i < max_pages:
-                #await page.wait_for_timeout(3000)
+
                 await page.fill(f'input#curP{type}A', str(i + 1))
                 await page.press(f'input#curP{type}A', 'Enter')
                     
@@ -184,13 +179,23 @@ class SheriffSpider(scrapy.Spider):
                 )
 
                                             # if something breaking..
-                                            # remove "dive#Area{type} >"
+                                            # remove "div#Area{type} >"
 
+                # await page.wait_for_function(
+                #     f'document.querySelector("div.AUCTION_STATS > div.ASTAT_MSGB.Astat_DATA") == null'
+                # )
 
                     
 
                 # TODO: enclose the wait_for_function part in a try except case (except timeout, then that red notice pops up from number entered over max_pages)
                 # TODO: instead of hard code timeout for date, wait for auction start date details to show up
+
+                # await page.wait_for_function(
+                #     'document.querySelector("div.AUCTION_STATS > div.ASTAT_MSGB.Astat_DATA").textContent != null'
+                # )
+
+                # TODO: Ensure that scraped items are being assigned correct date and are in the right date
+                    # TODO: Explore Playwright testing to figure this out
 
                 # Wait for dates to show up
                 await page.wait_for_timeout(1000)
@@ -201,122 +206,50 @@ class SheriffSpider(scrapy.Spider):
     # TODO: Implement running auctions as well --> refer to other parsing loops
     async def parse(self, response):
 
-        
         page = response.meta['playwright_page']
+
+        url = response.meta['url']  # Retrieve the URL from meta data
+
+        self.logger.info(f"Parsing page: {url}")  # Log the URL
+
         #await page.query_selector('div.ASTAT_MSGB.Astat_DATA')
 
-        max_pages_waiting = int(response.css('#maxWA::text').get())
-        for i in range(1, max_pages_waiting+1):
+        is_visible_waiting = await page.evaluate("document.querySelector('div.Head_W') && getComputedStyle(document.querySelector('div.Head_W')).display !== 'none';")
+        
+        if is_visible_waiting:
+            max_pages_waiting = int(response.css('#maxWA::text').get())
+            
+            for i in range(1, max_pages_waiting+1):
 
-            #await page.query_selector('div.ASTAT_MSGB.Astat_DATA')
+                #await page.query_selector('div.ASTAT_MSGB.Astat_DATA')
 
-            content = await page.content()
+                content = await page.content()
 
-            response = scrapy.http.HtmlResponse(url=response.url, body=content, encoding='utf-8')
+                response = scrapy.http.HtmlResponse(url=response.url, body=content, encoding='utf-8')
 
-            waiting_auctions = response.css('div#Area_W > div.AUCTION_ITEM.PREVIEW')
-
-
-            async for item in self.assign_auctions_items(waiting_auctions, page, max_pages_waiting, i, 'W'):
-                yield item
+                waiting_auctions = response.css('div#Area_W > div.AUCTION_ITEM.PREVIEW')
 
 
-        max_pages_closed = int(response.css('#maxCA::text').get())
+                async for item in self.assign_auctions_items(waiting_auctions, page, max_pages_waiting, i, 'W'):
+                    yield item
 
-        for i in range(1, max_pages_closed+1):
 
-            #await page.query_selector('div.ASTAT_MSGB.Astat_DATA')
+        is_visible_closed = await page.evaluate("document.querySelector('div.Head_C') && getComputedStyle(document.querySelector('div.Head_C')).display !== 'none';")
+        
+        if is_visible_closed:
+            max_pages_closed = int(response.css('#maxCA::text').get())
 
-            content = await page.content()
-            response = scrapy.http.HtmlResponse(url=response.url, body=content, encoding='utf-8')
+            for i in range(1, max_pages_closed+1):
 
-            closed_auctions = response.css('div#Area_C > div.AUCTION_ITEM.PREVIEW')
+                #await page.query_selector('div.ASTAT_MSGB.Astat_DATA')
 
-            async for item in self.assign_auctions_items(closed_auctions, page, max_pages_closed, i, 'C'):
-                yield item
+                content = await page.content()
+                response = scrapy.http.HtmlResponse(url=response.url, body=content, encoding='utf-8')
+
+                closed_auctions = response.css('div#Area_C > div.AUCTION_ITEM.PREVIEW')
+
+                async for item in self.assign_auctions_items(closed_auctions, page, max_pages_closed, i, 'C'):
+                    yield item
             
 
         await page.close()
-
-
-
-        # if response.meta['cur_page'] != response.meta['max_pages']:
-        #     yield scrapy.Request(response.url, callback=self.parse, meta={
-        #         "playwright" : True,
-        #         "playwright_include_page" : True,
-        #         'playwright_page_methods' : [
-        #             PageMethod('fill', 'input#curPWA', str(response.meta['cur_page'] + 1) ),
-        #             PageMethod('press', 'input#curPWA', 'Enter'),
-        #             #PageMethod('wait_for_timeout', 3000),
-        #             PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000), 
-        #             PageMethod('wait_for_selector', 'input#curPWA', timeout=10000),
-        #         ],
-        #         'cur_page' : response.meta['cur_page'] + 1,
-        #         'dont_filter' : True
-        #     })
-
-
-
-
-
-    # def parse(self, response):
-
-    #     page = response.meta['playwright_page']
-    #     retry_count = response.meta['retry_count']
-
-    #     try:
-    #         #page.wait_for_selector('div.AUCTION_ITEM.PREVIEW', timeout=5000)
-    #         # If selector found, process page
-    #         self.log("Element loaded successfully.")
-    #         print("Element loaded successfully.")
-            
-    #         auction_div = response.css('div.AUCTION_ITEM.PREVIEW')
-    #         print('hi')
-    #         print(auction_div)
-
-    #         # TODO: Implement feature that clicks on next page button on each url
-    #         for ele in auction_div:
-    #             item = SheriffScraperItem()
-
-    #             item['start_date'] = ele.css('div.ASTAT_MSGB.Astat_DATA::text').get()
-    #             item['case_status'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(1) > td::text').get()
-    #             item['case_number'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td::text').get()
-    #             item['parcel_id'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(3) > td::text').get()
-
-    #             item['property_address'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get())
-    #             print(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get()))
-
-    #             item['appraised_value'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(6) > td::text').get()
-    #             item['opening_bid'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(7) > td::text').get()
-    #             item['deposit_requirements'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(8) > td::text').get()
-
-    #             yield item
-
-    #     except Exception as e:
-    #         if retry_count < self.max_retries:
-    #             self.log(f"Element did not render in time... reloading page... retry count: {retry_count}")
-    #             print(f"Element did not render in time... reloading page... retry count: {retry_count}")
-    #             retry_count += 1
-
-    #             # Reload page and try again
-    #             yield scrapy.Request(
-    #                 url=response.url,
-    #                 meta={
-    #                     'playwright': True,
-    #                     'playwright_include_page' : True,
-    #                     'playwright_page_methods': [
-    #                         PageMethod('reload'),
-    #                         PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=5000)
-    #                     ],
-    #                     'retry_count' : retry_count
-    #                 },
-    #                 callback=self.parse,
-    #                 dont_filter=True
-    #             )
-
-    #         else:
-    #             self.log(f"Element did not load after {self.max_retries} retries.")
-    #             print(f"Element did not load after {self.max_retries} retries.")
-        
-
-
