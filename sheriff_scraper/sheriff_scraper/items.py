@@ -15,6 +15,7 @@ class SheriffScraperItem(scrapy.Item):
     case_number = scrapy.Field()
     parcel_id = scrapy.Field()
     property_address = scrapy.Field()
+    geocode = scrapy.Field()
     appraised_value = scrapy.Field()
     opening_bid = scrapy.Field()
     deposit_requirement = scrapy.Field()

@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Iterable
 from sheriff_scraper.items import SheriffScraperItem
 
+import requests
+
 
 import scrapy
 from scrapy_playwright.page import PageMethod
@@ -11,7 +13,7 @@ import usaddress
 
 class SheriffSpider(scrapy.Spider):
     name = "cuyahoga"
-    allowed_domains = ['cuyahoga.sheriffsaleauction.ohio.gov']
+    allowed_domains = ['cuyahoga.sheriffsaleauction.ohio.gov', 'nominatim.openstreetmap.org']
     max_retries = 3
 
     # def errback(self, failure):
@@ -138,7 +140,27 @@ class SheriffSpider(scrapy.Spider):
     #                                     'url': url
     #                                 }, 
     #                             callback=self.parse)
-            
+
+    def geocode_address(self, address, item):
+        url = f"https://nominatim.openstreetmap.org/search?q={address}&format=json&addressdetails=1"
+        return scrapy.Request(url=url,
+                              callback=self.parse_geocode,
+                              meta={'item': item, 'address': address})
+
+    def parse_geocode(self, response):
+        item = response.meta['item']
+        address = response.meta['address']
+        if response.status == 200:
+            result = response.json()
+            if result:
+                location = result[0]
+                item['geocode'] = {'lat': float(location['lat']), 'lon': float(location['lon'])}
+            else:
+                item['geocode'] = {'lat': None, 'lon': None}
+        else:
+            item['geocode'] = {'lat': None, 'lon': None}
+
+        yield item
 
     
     # TODO: Get start dates working. It loads in a little slower than the rest
@@ -159,6 +181,9 @@ class SheriffSpider(scrapy.Spider):
                 item['parcel_id'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(3) > td::text').get()
 
                 item['property_address'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get())
+                
+                geocode_request = self.geocode_address(item['property_address'], item)
+                yield geocode_request
 
                 item['appraised_value'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(6) > td::text').get()
                 item['opening_bid'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(7) > td::text').get()
