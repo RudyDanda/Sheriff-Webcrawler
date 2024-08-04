@@ -115,7 +115,8 @@ class SheriffSpider(scrapy.Spider):
                                         'url': url
                                     }, 
                                 callback=self.parse,
-                                errback=self.errback)
+                                errback=self.errback,
+                                dont_filter=True)
 
 
 
@@ -181,15 +182,15 @@ class SheriffSpider(scrapy.Spider):
                 item['parcel_id'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(3) > td::text').get()
 
                 item['property_address'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get())
-                
-                geocode_request = self.geocode_address(item['property_address'], item)
-                yield geocode_request
 
                 item['appraised_value'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(6) > td::text').get()
                 item['opening_bid'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(7) > td::text').get()
                 item['deposit_requirement'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(8) > td::text').get()
 
-                yield item
+                geocode_request = self.geocode_address(item['property_address'], item)
+                yield geocode_request # yields whole item after geocoding
+
+                #yield item
 
             if i < max_pages:
 
