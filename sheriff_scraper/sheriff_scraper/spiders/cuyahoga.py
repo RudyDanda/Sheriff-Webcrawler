@@ -16,20 +16,6 @@ class SheriffSpider(scrapy.Spider):
     allowed_domains = ['cuyahoga.sheriffsaleauction.ohio.gov', 'nominatim.openstreetmap.org']
     max_retries = 3
 
-    # def errback(self, failure):
-    #     self.logger.error(f"Request failed: {failure}")
-    #     request = failure.request
-    #     retries = request.meta.get('retry_times', 0) + 1
-    #     max_retries = self.custom_settings.get('RETRY_TIMES', 5)
-
-    #     if retries <= max_retries:
-    #         self.logger.info(f"Retrying {request.url} (Retry {retries}/{max_retries})")
-    #         retry_req = request.copy()
-    #         retry_req.meta['retry_times'] = retries
-    #         yield retry_req
-    #     else:
-    #         self.logger.error(f"Gave up on {request.url} after {max_retries} retries")
-
     def errback(self, failure):
         self.logger.error(repr(failure))
         if failure.check(scrapy.spidermiddlewares.httperror.HttpError):
@@ -95,13 +81,21 @@ class SheriffSpider(scrapy.Spider):
 
             
     def parse_calendar(self, response):
+        '''
+        Extracts all dates on a given calendar month that has sheriff sales and sends a Request to parse each date of their auction item sales
+
+        Args:
+            request for calendar site
+        Returns:
+            (Yields) requests for each date identified to host auction sales
+        
+        '''
         dates = response.css('div.CALBOX.CALW5.CALSELF ::attr(dayid)')
 
         urls = []
         template = 'https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE='
 
         for date in dates:
-            #urls.append(template + date.get())
             url = template + date.get()
 
             yield scrapy.Request(url=url,
@@ -143,12 +137,34 @@ class SheriffSpider(scrapy.Spider):
     #                             callback=self.parse)
 
     def geocode_address(self, address, item):
+        '''
+        Opens Nominatim on the OpenStreetMap software for a given address
+
+        Args:
+            address: street, state, zip
+            item: auction sale item
+
+        Returns:
+            (Yields) Request: opens up Nominatum url linked to given address
+        
+        '''
         url = f"https://nominatim.openstreetmap.org/search?q={address}&format=json&addressdetails=1"
         return scrapy.Request(url=url,
                               callback=self.parse_geocode,
                               meta={'item': item, 'address': address})
 
     def parse_geocode(self, response):
+        '''
+        Extracts latitude and longitude from Nominatum url of an address
+
+        Args:
+            request: the scrapy Request that opens up Nominatum url
+
+        Returns:
+            (Yields) auction sale item with geocode field filled in
+        
+        
+        '''
         item = response.meta['item']
         address = response.meta['address']
         if response.status == 200:
@@ -176,10 +192,11 @@ class SheriffSpider(scrapy.Spider):
             for ele in auction_div:
                 item = SheriffScraperItem()
 
+                item['county'] = 'cuyahoga'
                 item['start_date'] = ele.css('div.ASTAT_MSGB.Astat_DATA::text').get()
                 item['case_status'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(1) > td::text').get()
-                item['case_number'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td::text').get()
-                item['parcel_id'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(3) > td::text').get()
+                item['case_number'] = (ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td::text').get()).strip()
+                item['parcel_id'] = (ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(3) > td::text').get()).strip()
 
                 item['property_address'] = ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(4) > td::text').get() + ' ' + self.parse_address(ele.css('div.AUCTION_DETAILS > table > tbody > tr:nth-child(5) > td::text').get())
 
@@ -190,8 +207,6 @@ class SheriffSpider(scrapy.Spider):
                 geocode_request = self.geocode_address(item['property_address'], item)
                 yield geocode_request # yields whole item after geocoding
 
-                #yield item
-
             if i < max_pages:
 
                 await page.fill(f'input#curP{type}A', str(i + 1))
@@ -199,29 +214,9 @@ class SheriffSpider(scrapy.Spider):
                     
                 # Wait for the value of the input to change to the next page number
 
-                #try:
                 await page.wait_for_function(
                     f'document.querySelector("div.AUCTION_DETAILS > table > tbody > tr:nth-child(2) > td").textContent != "{first_case_number}"'
                 )
-
-                                            # if something breaking..
-                                            # remove "div#Area{type} >"
-
-                # await page.wait_for_function(
-                #     f'document.querySelector("div.AUCTION_STATS > div.ASTAT_MSGB.Astat_DATA") == null'
-                # )
-
-                    
-
-                # TODO: enclose the wait_for_function part in a try except case (except timeout, then that red notice pops up from number entered over max_pages)
-                # TODO: instead of hard code timeout for date, wait for auction start date details to show up
-
-                # await page.wait_for_function(
-                #     'document.querySelector("div.AUCTION_STATS > div.ASTAT_MSGB.Astat_DATA").textContent != null'
-                # )
-
-                # TODO: Ensure that scraped items are being assigned correct date and are in the right date
-                    # TODO: Explore Playwright testing to figure this out
 
                 # Wait for dates to show up
                 await page.wait_for_timeout(1000)
@@ -231,6 +226,16 @@ class SheriffSpider(scrapy.Spider):
 
     # TODO: Implement running auctions as well --> refer to other parsing loops
     async def parse(self, response):
+        '''
+        Extracts all information from each auction sale on a given Request
+
+        Args:
+            Request: URL of specific date that has auction sales
+
+        Returns:
+            (Yields) item: object with auction sale information
+        
+        '''
 
         page = response.meta['playwright_page']
 

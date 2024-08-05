@@ -10,6 +10,7 @@ class SheriffScraperItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
     
+    county = scrapy.Field()
     start_date = scrapy.Field()
     case_status = scrapy.Field()
     case_number = scrapy.Field()
