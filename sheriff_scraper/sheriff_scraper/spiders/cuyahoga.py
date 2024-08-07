@@ -104,7 +104,7 @@ class SheriffSpider(scrapy.Spider):
                                      'playwright_include_page' : True, 
                                      'playwright_page_methods' : [
                                          PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=5000), 
-                                         PageMethod('wait_for_selector', '[id*=max]', timeout=10000)
+                                         PageMethod('wait_for_selector', '[id*=max]:visible', timeout=10000)
                                         ],
                                         'url': url
                                     }, 
@@ -118,8 +118,7 @@ class SheriffSpider(scrapy.Spider):
 
     # def start_requests(self):
     #     urls = [
-    #         "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=08/12/2024",
-    #         "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=07/17/2024"
+    #         "https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=08/05/2024"
     #     ]
 
     #     for url in urls:
@@ -130,7 +129,7 @@ class SheriffSpider(scrapy.Spider):
     #                                  'playwright_include_page' : True, 
     #                                  'playwright_page_methods' : [
     #                                      PageMethod('wait_for_selector', 'div.AUCTION_ITEM.PREVIEW', timeout=10000), 
-    #                                      PageMethod('wait_for_selector', "#maxCA", timeout=10000),
+    #                                      PageMethod('wait_for_selector', '[id*=max]:visible', timeout=10000),
     #                                     ],
     #                                     'url': url
     #                                 }, 

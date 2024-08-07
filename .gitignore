@@ -3,3 +3,7 @@ venv/
 
 # Ignore db params config file
 config.ini
+
+
+# Ignore debuggers
+.vscode/

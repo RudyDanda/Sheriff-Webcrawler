@@ -1,3 +1,8 @@
 scrapy-playwright
 usaddress
 psycopg2-binary
+Flask
+flask-cors
+
+react-leaflet leaflet
+@mantine/core @mantine/hooks

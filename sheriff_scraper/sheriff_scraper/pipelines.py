@@ -22,7 +22,7 @@ import os
 
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-config_file_path = os.path.join(script_dir, '../config.ini')
+config_file_path = os.path.join(script_dir, '../../config.ini')
 
 config = configparser.ConfigParser(interpolation=None)
 config.read(config_file_path)
@@ -58,10 +58,11 @@ class SaveToPostgreSQLPipeline:
             case_number TEXT NOT NULL,
             parcel_id INTEGER,
             property_address TEXT,
-            geocode POINT,
             appraised_value MONEY,
             opening_bid MONEY,
             deposit_requirement MONEY,
+            lat DOUBLE PRECISION,
+            lon DOUBLE PRECISION,
             PRIMARY KEY (case_number)
         )
         """)
@@ -79,20 +80,22 @@ class SaveToPostgreSQLPipeline:
                     start_date, 
                     case_number, 
                     parcel_id, 
-                    property_address, 
-                    geocode, 
+                    property_address,
                     appraised_value, 
                     opening_bid, 
-                    deposit_requirement
+                    deposit_requirement,
+                    lat,
+                    lon
                 ) VALUES (
                     %s, 
                     %s, 
                     %s,
                     %s, 
                     %s, 
-                    POINT(%s, %s), 
                     %s, 
                     %s, 
+                    %s,
+                    %s,
                     %s
                 )
                 ON CONFLICT (case_number)
@@ -101,21 +104,22 @@ class SaveToPostgreSQLPipeline:
                     start_date = EXCLUDED.start_date,
                     parcel_id = EXCLUDED.parcel_id,
                     property_address = EXCLUDED.property_address,
-                    geocode = EXCLUDED.geocode,
                     appraised_value = EXCLUDED.appraised_value,
                     opening_bid = EXCLUDED.opening_bid,
-                    deposit_requirement = EXCLUDED.deposit_requirement;
+                    deposit_requirement = EXCLUDED.deposit_requirement,
+                    lat = EXCLUDED.lat,
+                    lon = EXCLUDED.lon;
             """, (
                 item['county'],
                 item['start_date'],
                 item['case_number'],
                 item['parcel_id'],
                 item['property_address'],
-                lon,
-                lat,
                 item['appraised_value'],
                 item['opening_bid'],
-                item['deposit_requirement']
+                item['deposit_requirement'],
+                lat,
+                lon
             ))
 
             self.conn.commit()  # Commit the transaction if successful
