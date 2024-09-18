@@ -4,5 +4,11 @@ psycopg2-binary
 Flask
 flask-cors
 
-react-leaflet leaflet
-@mantine/core @mantine/hooks
+#### npm install needs diff file ####
+react-leaflet 
+leaflet
+@mantine/core 
+@mantine/hooks
+@mui/material @emotion/react @emotion/styled
+@mui/icons-material
+@mui/material-next
