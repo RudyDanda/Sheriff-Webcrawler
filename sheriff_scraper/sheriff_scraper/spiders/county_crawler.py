@@ -12,9 +12,27 @@ import usaddress
 
 
 class SheriffSpider(scrapy.Spider):
-    name = "cuyahoga"
-    allowed_domains = ['cuyahoga.sheriffsaleauction.ohio.gov', 'nominatim.openstreetmap.org']
+    name = "county_crawler"
+    allowed_domains = ['sheriffsaleauction.ohio.gov', 'nominatim.openstreetmap.org']
     max_retries = 3
+
+    ohio_counties = [
+    "Adams", "Allen", "Ashland", "Ashtabula", "Athens", "Auglaize", 
+    "Belmont", "Brown", "Butler", "Carroll", "Champaign", "Clark", 
+    "Clermont", "Clinton", "Columbiana", "Coshocton", "Crawford", 
+    "Cuyahoga", "Darke", "Defiance", "Delaware", "Erie", "Fairfield", 
+    "Fayette", "Franklin", "Fulton", "Gallia", "Geauga", "Greene", 
+    "Guernsey", "Hamilton", "Hancock", "Hardin", "Harrison", "Henry", 
+    "Highland", "Hocking", "Holmes", "Huron", "Jackson", "Jefferson", 
+    "Knox", "Lake", "Lawrence", "Licking", "Logan", "Lorain", "Lucas", 
+    "Madison", "Mahoning", "Marion", "Medina", "Meigs", "Mercer", 
+    "Miami", "Monroe", "Montgomery", "Morgan", "Morrow", "Muskingum", 
+    "Noble", "Ottawa", "Paulding", "Perry", "Pickaway", "Pike", 
+    "Portage", "Preble", "Putnam", "Richland", "Ross", "Sandusky", 
+    "Scioto", "Seneca", "Shelby", "Stark", "Summit", "Trumbull", 
+    "Tuscarawas", "Union", "Van Wert", "Vinton", "Warren", "Washington", 
+    "Wayne", "Williams", "Wood", "Wyandot"
+    ]
 
     def errback(self, failure):
         self.logger.error(repr(failure))
@@ -34,6 +52,8 @@ class SheriffSpider(scrapy.Spider):
         # Retry the request
         new_request = request.copy()
         yield new_request
+
+    
 
     def parse_address(self, address):
         '''
@@ -56,25 +76,55 @@ class SheriffSpider(scrapy.Spider):
 
         return formatted_address
     
-    def open_calendar(self):
-        urls = ['https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=USER&zmethod=CALENDAR']
+    # def open_calendar(self):
+    #     urls = []
 
-        for url in urls:
-            yield scrapy.Request(url=url,
-                                 meta={
-                                     'playwright':True, 
-                                     'playwright_include_page' : True
-                                 },
-                                 callback=self.start_requests)
+        
+
+    #     # create county links
+    #     for county in ohio_counties:
+    #         urls.append('https://{county}.sheriffsaleauction.ohio.gov/index.cfm?zaction=USER&zmethod=CALENDAR')
+
+        
+    #     for url in urls:
+    #         yield scrapy.Request(url=url,
+    #                              meta={
+    #                                  'playwright':True, 
+    #                                  'playwright_include_page' : True
+    #                              },
+    #                              callback=self.start_requests)
             
     def start_requests(self):
-        urls = ['https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=USER&zmethod=CALENDAR']
+        urls = []
+
+        ohio_counties = [
+        "Adams", "Allen", "Ashland", "Ashtabula", "Athens", "Auglaize", 
+        "Belmont", "Brown", "Butler", "Carroll", "Champaign", "Clark", 
+        "Clermont", "Clinton", "Columbiana", "Coshocton", "Crawford", 
+        "Cuyahoga", "Darke", "Defiance", "Delaware", "Erie", "Fairfield", 
+        "Fayette", "Franklin", "Fulton", "Gallia", "Geauga", "Greene", 
+        "Guernsey", "Hamilton", "Hancock", "Hardin", "Harrison", "Henry", 
+        "Highland", "Hocking", "Holmes", "Huron", "Jackson", "Jefferson", 
+        "Knox", "Lake", "Lawrence", "Licking", "Logan", "Lorain", "Lucas", 
+        "Madison", "Mahoning", "Marion", "Medina", "Meigs", "Mercer", 
+        "Miami", "Monroe", "Montgomery", "Morgan", "Morrow", "Muskingum", 
+        "Noble", "Ottawa", "Paulding", "Perry", "Pickaway", "Pike", 
+        "Portage", "Preble", "Putnam", "Richland", "Ross", "Sandusky", 
+        "Scioto", "Seneca", "Shelby", "Stark", "Summit", "Trumbull", 
+        "Tuscarawas", "Union", "Van Wert", "Vinton", "Warren", "Washington", 
+        "Wayne", "Williams", "Wood", "Wyandot"
+        ]
+
+        # create county links
+        for county in ohio_counties:
+            urls.append((f'https://{county}.sheriffsaleauction.ohio.gov/index.cfm?zaction=USER&zmethod=CALENDAR', county))
 
         for url in urls:
-            yield scrapy.Request(url=url,
+            yield scrapy.Request(url=url[0],
                                  meta={
                                      'playwright':True, 
-                                     'playwright_include_page' : True
+                                     'playwright_include_page' : True,
+                                     'county': url[1]
                                  },
                                  callback=self.parse_calendar)
             
@@ -91,10 +141,12 @@ class SheriffSpider(scrapy.Spider):
         
         '''
         dates = response.css('div.CALBOX.CALW5.CALSELF ::attr(dayid)')
+        county = response.meta.get('county')
 
         urls = []
-        template = 'https://cuyahoga.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE='
+        template = f'https://{county}.sheriffsaleauction.ohio.gov/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE='
 
+        
         for date in dates:
             url = template + date.get()
 
