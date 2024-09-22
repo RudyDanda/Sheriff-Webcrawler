@@ -35,26 +35,26 @@ Follow the steps below to install the necessary requirements and start the appli
 
 1. **Navigate to the Flask backend directory**  
    After the web crawler finishes, navigate to the Flask backend directory:
-   \`\`\`bash
+   ```bash
    cd sheriff/flask_backend
-   \`\`\`
+   ```
 
 2. **Activate the Flask server**  
    Run the following command to start the Flask backend server:
-   \`\`\`bash
+   ```bash
    python -m app
-   \`\`\`
+   ```
 
 ### Running the React Frontend
 
 1. **Navigate to the React frontend directory**  
    Change into the frontend directory:
-   \`\`\`bash
+   ```bash
    cd sheriff/react_frontend
-   \`\`\`
+   ```
 
 2. **Start the React app**  
    Launch the React frontend with the following command:
-   \`\`\`bash
+   ```bash
    npm start
-   \`\`\`
+   ```
