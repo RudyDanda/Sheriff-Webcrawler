@@ -2,10 +2,19 @@
 
 ## About
 
-This project was created to aggregate data released by the Ohio government on sheriff sales (foreclosures) across its counties. Currently, each county's data is hosted on different websites
+This project was created to aggregate data released by the Ohio government on sheriff sales (foreclosures) across its counties. Currently, each county's data is hosted on different websites.
 
-![Cuyahoga Sheriff Sales Page](images/cuyahoga_page.png)
-![Sandusky Sheriff Sales Page](images/sandusky_page.png)
+<div style="display: flex; justify-content: space-between;">
+    <div style="margin-right: 10px;">
+        <p><strong>Cuyahoga Sheriff Sales Page</strong></p>
+        <img width="400" alt="Cuyahoga Sheriff Sales Page" src="https://github.com/user-attachments/assets/06e2b5dd-3a66-407c-ac73-5b98898cac6f">
+    </div>
+    <div>
+        <p><strong>Sandusky Sheriff Sales Page</strong></p>
+        <img width="400" alt="Sandusky Sheriff Sales Page" src="https://github.com/user-attachments/assets/d0b8fabd-71b7-47a9-8c97-a73c5a6b262c">
+    </div>
+</div>
+
 
 All 88 counties of Ohio have a similar web page, which makes access of data on a wider scale difficult. This application aims to pull data from these sources using a web crawler and display them on a map interface. Accomplishing this can help analysts work with Ohio sheriff sales data in an easier way.
 
