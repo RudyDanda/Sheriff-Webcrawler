@@ -72,3 +72,8 @@ Follow the steps below to install the necessary requirements and start the appli
    ```bash
    npm start
    ```
+
+
+## Acknowledgments
+
+- Thanks to the [Ohio Government](https://ohio.gov) for providing the data.
