@@ -1,31 +1,60 @@
 # Ohio Sheriff Sales Web Crawler + Map Interface
 
-## About:
+## About
 
-This project was built with the purpose of aggregating the data released by the Ohio government on the different sheriff sales (foreclosures) across its counties. Currently, there is an issue where all the data for each county are on different websites. This application aims to pull this data from these sources and display them on a map interface through a web crawling pipeline. 
+This project was created to aggregate data released by the Ohio government on sheriff sales (foreclosures) across its counties. Currently, each county's data is hosted on different websites, which makes it difficult to access and analyze. This application aims to pull data from these sources using a web crawler and display them on a map interface.
 
 ## Getting Started
 
-To get started, install the minimum requirements by typing the following into the terminal:
-`pip install -r minreq.txt`
-`npm install -r minreq_react.txt`
+Follow the steps below to install the necessary requirements and start the application.
 
-To activate the web crawler to scrape from all counties, type the following into the terminal:
+### Prerequisites
 
-Enter the correct pathway:
-`cd sheriff_scraper/sheriff_scraper`
+1. **Install Python and npm dependencies**  
+   Run the following commands in your terminal to install the required Python and npm packages:
+   \`\`\`bash
+   pip install -r minreq_pip.txt
+   npm install -r minreq_npm.txt
+   \`\`\`
 
-Scrapy Crawler Activation:
-`scrapy crawl county_crawler`
+### Running the Web Crawler
 
-After the web crawler finishes, then please enter into the Flask backend pathway
-`cd`
-`cd sheriff/flask_backend`
+1. **Navigate to the web crawler directory**  
+   Enter the correct directory by running:
+   \`\`\`bash
+   cd sheriff_scraper/sheriff_scraper
+   \`\`\`
 
-Activate the Flask server:
-`python -m app`
+2. **Activate the Scrapy crawler**  
+   Run the following command to start scraping data from all Ohio counties:
+   \`\`\`bash
+   scrapy crawl county_crawler
+   \`\`\`
 
-Activate the React App by entering into the frontend and then launching the app:
-`cd`
-`cd sheriff/react_frontend`
-`npm start`
+### Running the Flask Backend
+
+1. **Navigate to the Flask backend directory**  
+   After the web crawler finishes, navigate to the Flask backend directory:
+   \`\`\`bash
+   cd sheriff/flask_backend
+   \`\`\`
+
+2. **Activate the Flask server**  
+   Run the following command to start the Flask backend server:
+   \`\`\`bash
+   python -m app
+   \`\`\`
+
+### Running the React Frontend
+
+1. **Navigate to the React frontend directory**  
+   Change into the frontend directory:
+   \`\`\`bash
+   cd sheriff/react_frontend
+   \`\`\`
+
+2. **Start the React app**  
+   Launch the React frontend with the following command:
+   \`\`\`bash
+   npm start
+   \`\`\`
